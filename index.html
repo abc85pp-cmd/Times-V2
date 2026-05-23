@@ -25,6 +25,15 @@
         .pulse-active {
             animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
+        /* Eliminar flechas de incremento nativas en input numérico */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between">
@@ -146,11 +155,14 @@
                         </div>
                     </div>
                     
-                    <!-- Contador Compacto -->
+                    <!-- Contador Compacto Editable Directamente -->
                     <div class="col-span-5 bg-slate-900/80 border border-slate-750 rounded-xl p-3 flex flex-col justify-center items-center">
                         <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">Unidades</span>
-                        <div id="counter-display" class="text-3xl font-black text-emerald-400 select-none">
-                            0
+                        <div class="w-full flex justify-center">
+                            <input type="number" id="counter-display" value="0" min="0" step="1"
+                                   onfocus="this.select()"
+                                   class="w-full bg-transparent text-center text-3xl font-black text-emerald-400 focus:outline-none focus:ring-0 border-none select-all transition-colors cursor-pointer"
+                                   title="Pulsa para editar el número de unidades directamente">
                         </div>
                     </div>
                 </div>
@@ -332,7 +344,6 @@
         let startTime = 0;
         let elapsedTime = 0; 
         let timerRunning = false;
-        let currentCount = 0;
 
         let lastEpochStart = null;
         let lastEpochEnd = null;
@@ -345,7 +356,7 @@
         const btnStartStopIcon = document.getElementById('btn-start-stop-icon');
         const btnStartStopText = document.getElementById('btn-start-stop-text');
 
-        // ELEMENTOS DOM DEL CONTADOR
+        // ELEMENTOS DOM DEL CONTADOR (EDITABLE DIRECTAMENTE)
         const counterDisplay = document.getElementById('counter-display');
 
         // ELEMENTOS DOM DE CAMPOS DE ENTRADA
@@ -514,16 +525,16 @@
             epochLogTimes.innerText = "Inicio: --:--:-- | Fin: --:--:--";
         }
 
-        // MANEJO DE UNIDADES CONTADAS
+        // MANEJO DE UNIDADES CONTADAS CON INCREMENTO SINK
         function incrementCounter() {
-            currentCount++;
-            counterDisplay.innerText = currentCount;
+            let currentVal = parseInt(counterDisplay.value) || 0;
+            currentVal++;
+            counterDisplay.value = currentVal;
             playBeep(850, 0.05, 'sine');
         }
 
         function resetCounter() {
-            currentCount = 0;
-            counterDisplay.innerText = currentCount;
+            counterDisplay.value = 0;
             playBeep(300, 0.08, 'sine');
         }
 
@@ -533,6 +544,7 @@
             const product = inputProduct.value.trim();
             const notes = inputNotes.value.trim();
             const step = inputStep.value;
+            const unitsVal = parseInt(counterDisplay.value) || 0;
 
             if (!line || !product) {
                 openModal("Faltan Campos", "Por favor ingresa un 'No. de Línea' y un 'Producto' antes de registrar el llenado.");
@@ -576,7 +588,7 @@
                 startTime: startStr,
                 endTime: endStr,
                 seconds: parseFloat(secondsPassed),
-                units: currentCount,
+                units: unitsVal,
                 notes: notes || 'Sin notas.'
             };
 
@@ -594,7 +606,7 @@
             resetCounter();
         }
 
-        // ACTUALIZACIÓN DINÁMICA DE LA TABLA
+        // ACTUALIZACIÓN DINÁMICA DE LA TABLA (SE SEGUNDOS QUITA LA "S")
         function updateRunsTable() {
             runsTableBody.innerHTML = '';
 
@@ -631,7 +643,8 @@
                     </td>
                     <td class="py-3 px-3 text-center text-slate-400 tracking-wider">${run.startTime}</td>
                     <td class="py-3 px-3 text-center text-slate-400 tracking-wider">${run.endTime}</td>
-                    <td class="py-3 px-3 text-center font-extrabold text-blue-400 tracking-tight">${run.seconds}s</td>
+                    <!-- Removido el "s" para que quede solo el número de segundos puro -->
+                    <td class="py-3 px-3 text-center font-extrabold text-blue-400 tracking-tight">${run.seconds}</td>
                     <td class="py-3 px-3 text-center font-bold text-emerald-400">${run.units}</td>
                     <td class="py-3 px-4 text-slate-400 italic font-light max-w-[160px] truncate" title="${escapeHTML(run.notes)}">
                         ${escapeHTML(run.notes)}
@@ -720,7 +733,7 @@
             };
         }
 
-        // EXPORTADOR EXCEL-COMPATIBLE CSV (CON NUEVA COLUMNA FECHA)
+        // EXPORTADOR EXCEL-COMPATIBLE CSV CON LOS DATOS SOLICITADOS
         function exportToCSV() {
             if (runs.length === 0) {
                 openModal("Sin Registros", "No tienes datos en la tabla para exportar. Registra primero tus tiempos de llenado.");
@@ -728,7 +741,7 @@
             }
 
             let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-            csvContent += "Nro Registro,Fecha,No Linea,Producto,Paso,Hora Inicio,Hora Fin,Tiempo Transcurrido (s),Unidades Contadas,Notas\n";
+            csvContent += "Nro Registro,Fecha,Linea,Producto,Paso,Hora Inicio,Hora Fin,Segundos,Unidades,Notas\n";
 
             const exportOrder = [...runs].reverse();
             exportOrder.forEach((run, index) => {
@@ -739,13 +752,13 @@
 
                 const row = [
                     index + 1,
-                    run.date, // Añadida la fecha formateada al CSV
-                    escapedLine,
-                    escapedProduct,
+                    run.date, // Exportación obligatoria de Fecha
+                    escapedLine, // Exportación obligatoria de Línea
+                    escapedProduct, // Exportación obligatoria de Producto
                     escapedStep,
                     run.startTime,
                     run.endTime,
-                    run.seconds,
+                    run.seconds, // Segundos puros sin caracteres de texto adicionales
                     run.units,
                     escapedNotes
                 ];
