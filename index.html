@@ -2,7 +2,8 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- SOLUCIÓN C: Bloqueo de escala en el Viewport para evitar zoom accidental en iOS -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Control de Tiempos de Llenado - Planta de Producción</title>
     <!-- Tailwind CSS para un diseño moderno y responsivo -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -33,6 +34,11 @@
         }
         input[type=number] {
             -moz-appearance: textfield;
+        }
+
+        /* SOLUCIÓN A: Deshabilitar gestos de doble toque para zoom en elementos interactivos */
+        button, select, input, .no-zoom-target {
+            touch-action: manipulation;
         }
     </style>
 </head>
@@ -174,14 +180,14 @@
 
                 <!-- Botones Principales Operativos LADO A LADO -->
                 <div class="w-full grid grid-cols-2 gap-3 z-10 mb-4">
-                    <!-- Botón del Cronómetro -->
-                    <button id="btn-start-stop" onclick="toggleTimer()" 
+                    <!-- Botón del Cronómetro (Lógica táctil instántanea aplicada por JS) -->
+                    <button id="btn-start-stop" 
                             class="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold py-3.5 px-3 rounded-xl transition-all shadow-lg shadow-emerald-700/20 text-xs sm:text-sm">
                         <i class="fa-solid fa-play" id="btn-start-stop-icon"></i> 
                         <span id="btn-start-stop-text">INICIAR</span>
                     </button>
-                    <!-- Botón de Añadir Unidad -->
-                    <button onclick="incrementCounter()" 
+                    <!-- Botón de Añadir Unidad (Lógica táctil instántanea aplicada por JS) -->
+                    <button id="btn-add-unit" 
                             class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black py-3.5 px-3 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-xs sm:text-sm">
                         <i class="fa-solid fa-plus text-base"></i>
                         <span>AÑADIR UNIDAD</span>
@@ -189,7 +195,7 @@
                 </div>
 
                 <!-- Botón de Registro Integrado -->
-                <button onclick="saveCurrentRun()" 
+                <button id="btn-save-record" onclick="saveCurrentRun()" 
                         class="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 text-sm z-10 mb-4">
                     <i class="fa-solid fa-file-invoice"></i> Registrar Llenado en Tabla
                 </button>
@@ -401,6 +407,10 @@
             const lastLine = localStorage.getItem('plant_last_line');
             if (lastLine) inputLine.value = lastLine;
 
+            // SOLUCIÓN B: Vincular eventos táctiles instantáneos (touchstart) para anular el lag en iPhone
+            bindInstantTrigger('btn-add-unit', incrementCounter);
+            bindInstantTrigger('btn-start-stop', toggleTimer);
+
             // Atajos de Teclado
             document.addEventListener('keydown', function(e) {
                 if (document.activeElement.tagName === 'INPUT' || 
@@ -416,6 +426,27 @@
                     e.preventDefault();
                     incrementCounter();
                 }
+            });
+        }
+
+        // FUNCIÓN CONTROLADORA MULTI-PLATAFORMA (EVITA DELAY EN MÓVIL Y DOBLE CLICK)
+        function bindInstantTrigger(buttonId, callback) {
+            const btn = document.getElementById(buttonId);
+            if (!btn) return;
+            
+            // Forzar anti-zoom por código
+            btn.style.touchAction = 'manipulation';
+            
+            // Para pantallas táctiles (iOS/Android)
+            btn.addEventListener('touchstart', function(e) {
+                e.preventDefault(); // Detiene el delay de 300ms y el zoom nativo de iOS
+                callback();
+            }, { passive: false });
+            
+            // Para computadoras de escritorio (Desktop / Clic de Mouse)
+            btn.addEventListener('click', function(e) {
+                // e.preventDefault() en touchstart evitará que este click se dispare en teléfonos
+                callback();
             });
         }
 
