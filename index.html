@@ -799,9 +799,25 @@
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             
-            const timestamp = new Date().toISOString().slice(0,10);
+            // ASIGNACIÓN AUTOMÁTICA DEL NOMBRE DEL ARCHIVO: fecha, linea y producto del último registro (runs[0])
+            const latestRun = runs[0];
+            const cleanDate = latestRun.date.replace(/\//g, "-"); // Cambiar diagonales "/" por guiones "-" para compatibilidad de archivos
+            
+            // Función auxiliar para quitar acentos, espacios múltiples y caracteres no permitidos en nombres de archivos
+            function sanitizeForFilename(str) {
+                return str.normalize("NFD")
+                          .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+                          .replace(/[^a-zA-Z0-9-_ ]/g, "") // Mantener solo caracteres básicos seguros
+                          .trim()
+                          .replace(/\s+/g, "_"); // Reemplazar todos los espacios por guiones bajos
+            }
+            
+            const cleanLine = sanitizeForFilename(latestRun.line);
+            const cleanProduct = sanitizeForFilename(latestRun.product);
+            const filename = `${cleanDate}_Linea_${cleanLine}_${cleanProduct}.csv`;
+
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `Tiempos_Procesos_Planta_${timestamp}.csv`);
+            link.setAttribute("download", filename);
             document.body.appendChild(link);
 
             link.click();
